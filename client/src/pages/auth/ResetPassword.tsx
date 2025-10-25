@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, AlertCircle, Loader2, CheckCircle, Lock } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -17,20 +16,6 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { updatePassword } = useAuth();
-  
-  useEffect(() => {
-    // Check if we have access token in URL (Supabase auth redirect)
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    
-    if (accessToken) {
-      // Set the access token in Supabase
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: hashParams.get('refresh_token') || '',
-      });
-    }
-  }, []);
   
   const validatePassword = (pass: string) => {
     if (pass.length < 6) {

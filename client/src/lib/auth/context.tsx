@@ -1,16 +1,13 @@
-
 import { createContext } from 'react';
-import { Session } from '@supabase/supabase-js';
 import { User } from '@/types';
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
   isLoading: boolean;
   error: string | null;
   loadingTimedOut?: boolean;
-  login: (email: string, password: string) => Promise<Session | null>;
-  register: (username: string, email: string, password: string) => Promise<Session | null>;
+  login: (email: string, password: string) => Promise<any>;
+  register: (username: string, email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -20,7 +17,6 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
   isLoading: false,
   error: null,
   loadingTimedOut: false,

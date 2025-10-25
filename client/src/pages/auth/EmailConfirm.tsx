@@ -1,53 +1,13 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 export default function EmailConfirm() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [status] = useState<'loading' | 'success' | 'error'>('success');
+  const [errorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
-  
-  useEffect(() => {
-    const processEmailConfirmation = async () => {
-      try {
-        // Check if we have access token in URL (Supabase auth redirect)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        
-        if (!accessToken) {
-          setStatus('error');
-          setErrorMessage('Ссылка подтверждения недействительна или устарела.');
-          return;
-        }
-        
-        // Set the session
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: hashParams.get('refresh_token') || '',
-        });
-        
-        if (error) {
-          throw error;
-        }
-        
-        setStatus('success');
-        
-        // Redirect to home page after a delay
-        setTimeout(() => {
-          navigate('/');
-        }, 3000);
-      } catch (error: any) {
-        console.error('Email confirmation error:', error);
-        setStatus('error');
-        setErrorMessage(error.message || 'Произошла ошибка при подтверждении email.');
-      }
-    };
-    
-    processEmailConfirmation();
-  }, [navigate]);
   
   return (
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-cyberdark-900">

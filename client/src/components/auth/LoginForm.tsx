@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useAuth } from '@/lib/auth/newProvider';
+import { useAuth } from '@/lib/auth';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

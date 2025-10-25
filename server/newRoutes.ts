@@ -438,11 +438,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { message, history = [] } = req.body;
 
-      // Simple bot responses for cybersecurity context
+      const HUGGING_FACE_API_KEY = process.env.HUGGING_FACE_API_KEY;
+
+      // If Hugging Face API key is available, use AI
+      if (HUGGING_FACE_API_KEY) {
+        try {
+          const MODEL_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill";
+          
+          const response = await fetch(MODEL_URL, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${HUGGING_FACE_API_KEY}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              inputs: message,
+              parameters: {
+                max_length: 100,
+                temperature: 0.7,
+                top_p: 0.9,
+                do_sample: true,
+              }
+            })
+          });
+
+          const result = await response.json();
+          
+          if (!result.error && Array.isArray(result) && result.length > 0) {
+            const botResponse = result[0].generated_text || "Извините, я не смог сгенерировать ответ. Пожалуйста, попробуйте еще раз.";
+            return res.json({ 
+              botResponse,
+              success: true 
+            });
+          }
+        } catch (aiError) {
+          console.error("Hugging Face API error:", aiError);
+          // Fall through to fallback responses
+        }
+      }
+
+      // Fallback responses for cybersecurity context
       const responses = [
         "Отличный вопрос! В кибербезопасности очень важно начинать с основ. Я рекомендую изучить наш раздел по веб-уязвимостям. Там вы найдете материалы для начинающих. Также попробуйте решить несколько простых CTF-заданий для практики.",
         "Для начинающих в CTF рекомендую начать с простых задач в разделе Web. Там вы найдете задания для новичков с подробными объяснениями. Постепенно переходите к более сложным заданиям по мере получения опыта.",
         "Криптография - увлекательное направление! Вы можете найти материалы в нашей базе знаний и практические задания на платформе CTF. Начните с изучения основных алгоритмов шифрования, таких как AES и RSA.",
+        "CyberWhale предоставляет профессиональные услуги по аудиту безопасности, пентестам и мониторингу. Мы также создаём кастомные ИИ-аватары для автоматизации задач ИБ. Заинтересованы? Свяжитесь с нами!",
+        "Наши услуги включают внешние и внутренние аудиты систем, консалтинг по политикам ИБ, пентесты и инцидент-респонс. Мы работаем с малым бизнесом и государственными организациями.",
         "Обязательно ознакомьтесь с нашими лабораторными работами для практики. Теория важна, но практика — ключ к успеху в кибербезопасности. У нас есть виртуальные лаборатории для безопасного тестирования различных уязвимостей.",
         "В нашем сообществе много опытных специалистов. Не стесняйтесь задавать вопросы и делиться своим опытом! Также регулярно проводятся мероприятия и вебинары, где вы можете получить новые знания и установить полезные контакты."
       ];

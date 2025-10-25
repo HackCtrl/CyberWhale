@@ -1,40 +1,72 @@
-
 import { NavigateFunction } from 'react-router-dom';
 import { Dispatch, SetStateAction } from 'react';
-import { Session } from '@supabase/supabase-js';
 import { User } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/api';
 import { toast } from '@/components/ui/use-toast';
-import { handleUserLogin } from './utils';
 
-// Login action
+interface AuthResponse {
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    avatar?: string;
+    role: string;
+    points: number;
+    level: number;
+    emailVerified?: boolean;
+  };
+  token: string;
+  message?: string;
+}
+
+interface RegisterResponse {
+  userId: number;
+  email: string;
+  message: string;
+  verificationRequired?: boolean;
+  developmentCode?: string;
+}
+
 export const login = async (
   email: string,
   password: string,
   setIsLoading: Dispatch<SetStateAction<boolean>>,
   setError: Dispatch<SetStateAction<string | null>>
-): Promise<Session | null> => {
+): Promise<AuthResponse | null> => {
   setIsLoading(true);
   setError(null);
   
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
     });
-    
-    if (error) {
-      console.error('Login error:', error);
-      setError(error.message);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || 'Login failed');
       toast({
         title: "Ошибка входа",
-        description: error.message,
+        description: data.message || 'Неверный email или пароль',
         variant: "destructive",
       });
       return null;
     }
+
+    if (data.token) {
+      apiClient.setToken(data.token);
+    }
     
-    return data.session;
+    toast({
+      title: "Успешный вход",
+      description: "Добро пожаловать в CyberWhale!",
+    });
+
+    return data;
   } catch (err: any) {
     console.error('Unexpected login error:', err);
     setError(err.message);
@@ -49,7 +81,6 @@ export const login = async (
   }
 };
 
-// Register action
 export const register = async (
   username: string,
   email: string,
@@ -57,47 +88,45 @@ export const register = async (
   setIsLoading: Dispatch<SetStateAction<boolean>>,
   setError: Dispatch<SetStateAction<string | null>>,
   navigate: NavigateFunction
-): Promise<Session | null> => {
+): Promise<RegisterResponse | null> => {
   setIsLoading(true);
   setError(null);
   
   try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          username,
-        },
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ username, email, password }),
     });
-    
-    if (error) {
-      console.error('Registration error:', error);
-      setError(error.message);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || 'Registration failed');
       toast({
         title: "Ошибка регистрации",
-        description: error.message,
+        description: data.message,
         variant: "destructive",
       });
       return null;
     }
     
-    // If email confirmation is required
-    if (!data.session) {
+    if (data.verificationRequired) {
       toast({
-        title: "Проверьте свою почту",
-        description: "Мы отправили вам ссылку для подтверждения аккаунта",
+        title: "Регистрация прошла успешно!",
+        description: data.message,
       });
-      navigate('/email-confirm');
-    } else {
-      toast({
-        title: "Регистрация успешна",
-        description: "Добро пожаловать в CyberWhale!",
-      });
+      
+      if (data.developmentCode) {
+        console.log('Verification code:', data.developmentCode);
+      }
+      
+      navigate('/auth/verify-otp', { state: { email: data.email } });
     }
     
-    return data.session;
+    return data;
   } catch (err: any) {
     console.error('Unexpected registration error:', err);
     setError(err.message);
@@ -112,10 +141,8 @@ export const register = async (
   }
 };
 
-// Logout action
 export const logout = async (
   setUser: Dispatch<SetStateAction<User | null>>,
-  setSession: Dispatch<SetStateAction<Session | null>>,
   setIsLoading: Dispatch<SetStateAction<boolean>>,
   setError: Dispatch<SetStateAction<string | null>>,
   navigate: NavigateFunction
@@ -123,22 +150,8 @@ export const logout = async (
   setIsLoading(true);
   
   try {
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      console.error('Logout error:', error);
-      setError(error.message);
-      toast({
-        title: "Ошибка выхода",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
-    
+    apiClient.clearToken();
     setUser(null);
-    setSession(null);
-    
     navigate('/');
     
     toast({
@@ -158,7 +171,6 @@ export const logout = async (
   }
 };
 
-// Reset password action
 export const resetPassword = async (
   email: string,
   setIsLoading: Dispatch<SetStateAction<boolean>>,
@@ -168,27 +180,36 @@ export const resetPassword = async (
   setError(null);
   
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const response = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
     });
-    
-    if (error) {
-      console.error('Reset password error:', error);
-      setError(error.message);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || 'Password reset failed');
       toast({
         title: "Ошибка сброса пароля",
-        description: error.message,
+        description: data.message,
         variant: "destructive",
       });
       return;
     }
+
+    if (data.developmentCode) {
+      console.log('Reset code:', data.developmentCode);
+    }
     
     toast({
-      title: "Проверьте свою почту",
-      description: "Мы отправили вам инструкции по сбросу пароля",
+      title: "Код отправлен",
+      description: data.message,
     });
   } catch (err: any) {
-    console.error('Unexpected reset password error:', err);
+    console.error('Unexpected password reset error:', err);
     setError(err.message);
     toast({
       title: "Ошибка сброса пароля",
@@ -200,116 +221,145 @@ export const resetPassword = async (
   }
 };
 
-// Update password action
 export const updatePassword = async (
-  password: string,
+  email: string,
+  code: string,
+  newPassword: string,
   setIsLoading: Dispatch<SetStateAction<boolean>>,
-  setError: Dispatch<SetStateAction<string | null>>,
-  navigate: NavigateFunction
-): Promise<void> => {
+  setError: Dispatch<SetStateAction<string | null>>
+): Promise<boolean> => {
   setIsLoading(true);
   setError(null);
   
   try {
-    const { error } = await supabase.auth.updateUser({
-      password,
+    const response = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, code, newPassword }),
     });
-    
-    if (error) {
-      console.error('Update password error:', error);
-      setError(error.message);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || 'Password update failed');
       toast({
         title: "Ошибка обновления пароля",
-        description: error.message,
+        description: data.message,
         variant: "destructive",
       });
-      return;
+      return false;
     }
     
     toast({
       title: "Пароль обновлен",
-      description: "Ваш пароль был успешно обновлен",
+      description: data.message,
     });
-    
-    navigate('/login');
+
+    return true;
   } catch (err: any) {
-    console.error('Unexpected update password error:', err);
+    console.error('Unexpected password update error:', err);
     setError(err.message);
     toast({
       title: "Ошибка обновления пароля",
       description: "Произошла неожиданная ошибка при обновлении пароля",
       variant: "destructive",
     });
+    return false;
   } finally {
     setIsLoading(false);
   }
 };
 
-// Update profile action
 export const updateProfile = async (
-  user: User,
+  userId: number,
   updates: Partial<User>,
-  setUser: Dispatch<SetStateAction<User | null>>,
   setIsLoading: Dispatch<SetStateAction<boolean>>,
   setError: Dispatch<SetStateAction<string | null>>
-): Promise<void> => {
+): Promise<User | null> => {
   setIsLoading(true);
   setError(null);
   
   try {
-    // First update the profile in the database
-    const profileUpdates: Record<string, any> = {};
-    
-    if (updates.username) profileUpdates.username = updates.username;
-    if (updates.avatar) profileUpdates.avatar_url = updates.avatar;
-    
-    if (Object.keys(profileUpdates).length > 0) {
-      profileUpdates.updated_at = new Date().toISOString();
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('id', user.id);
-      
-      if (error) {
-        console.error('Update profile error:', error);
-        setError(error.message);
-        toast({
-          title: "Ошибка обновления профиля",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
-    // Then update the local user state
-    setUser({
-      ...user,
-      ...updates
-    });
+    const response = await apiClient.updateProfile(updates);
     
     toast({
       title: "Профиль обновлен",
-      description: "Ваш профиль был успешно обновлен",
+      description: "Ваши данные успешно обновлены",
     });
+
+    return response;
   } catch (err: any) {
-    console.error('Unexpected update profile error:', err);
+    console.error('Unexpected profile update error:', err);
     setError(err.message);
     toast({
       title: "Ошибка обновления профиля",
       description: "Произошла неожиданная ошибка при обновлении профиля",
       variant: "destructive",
     });
+    return null;
   } finally {
     setIsLoading(false);
   }
 };
 
-// Verify OTP action
 export const verifyOtp = async (
   email: string,
-  token: string,
+  code: string,
+  setIsLoading: Dispatch<SetStateAction<boolean>>,
+  setError: Dispatch<SetStateAction<string | null>>
+): Promise<AuthResponse | null> => {
+  setIsLoading(true);
+  setError(null);
+  
+  try {
+    const response = await fetch('/api/auth/verify-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, code }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || 'Verification failed');
+      toast({
+        title: "Ошибка верификации",
+        description: data.message,
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    if (data.token) {
+      apiClient.setToken(data.token);
+    }
+    
+    toast({
+      title: "Email подтвержден!",
+      description: "Добро пожаловать в CyberWhale!",
+    });
+
+    return data;
+  } catch (err: any) {
+    console.error('Unexpected verification error:', err);
+    setError(err.message);
+    toast({
+      title: "Ошибка верификации",
+      description: "Произошла неожиданная ошибка при верификации",
+      variant: "destructive",
+    });
+    return null;
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+export const resendVerification = async (
+  email: string,
   setIsLoading: Dispatch<SetStateAction<boolean>>,
   setError: Dispatch<SetStateAction<string | null>>
 ): Promise<void> => {
@@ -317,33 +367,40 @@ export const verifyOtp = async (
   setError(null);
   
   try {
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'email',
+    const response = await fetch('/api/auth/resend-verification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
     });
-    
-    if (error) {
-      console.error('Verify OTP error:', error);
-      setError(error.message);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || 'Resend failed');
       toast({
-        title: "Ошибка верификации",
-        description: error.message,
+        title: "Ошибка отправки",
+        description: data.message,
         variant: "destructive",
       });
       return;
     }
+
+    if (data.developmentCode) {
+      console.log('Verification code:', data.developmentCode);
+    }
     
     toast({
-      title: "Успешная верификация",
-      description: "Ваш аккаунт успешно подтвержден",
+      title: "Код отправлен",
+      description: data.message,
     });
   } catch (err: any) {
-    console.error('Unexpected verify OTP error:', err);
+    console.error('Unexpected resend error:', err);
     setError(err.message);
     toast({
-      title: "Ошибка верификации",
-      description: "Произошла неожиданная ошибка при верификации",
+      title: "Ошибка отправки",
+      description: "Произошла неожиданная ошибка при отправке кода",
       variant: "destructive",
     });
   } finally {

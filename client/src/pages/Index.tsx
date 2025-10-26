@@ -23,7 +23,7 @@ export default function HomePage() {
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyberblue-400 to-cyberpurple-400">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-cyberblue-400 to-white animate-gradient">
                 CyberWhale
               </span>
               <br />

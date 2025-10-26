@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import cyberWhaleLogo from '@assets/ChatGPT Image 10 авг. 2025 г., 11_21_16_1755449890714.png';
 import { 
@@ -116,13 +116,13 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center flex-shrink-0">
-            <Link to="/" className="flex items-center space-x-2">
+                        <Link to="/" className="flex items-center space-x-2">
               <img 
                 src={cyberWhaleLogo} 
                 alt="CyberWhale" 
                 className="w-8 h-8 object-contain"
               />
-              <span className="text-xl font-bold text-white tracking-tight">CyberWhale</span>
+              <span className="text-xl font-bold tracking-tight text-white">CyberWhale</span>
             </Link>
           </div>
 

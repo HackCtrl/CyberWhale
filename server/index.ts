@@ -1,4 +1,16 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+
+// Debug helpers: log uncaught exceptions and unhandled rejections so we can see why process exits
+process.on('uncaughtException', (err) => {
+  // eslint-disable-next-line no-console
+  console.error('UNCAUGHT EXCEPTION:', err && (err.stack || err));
+});
+
+process.on('unhandledRejection', (reason) => {
+  // eslint-disable-next-line no-console
+  console.error('UNHANDLED REJECTION:', reason);
+});
 import { registerRoutes } from "./newRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -60,11 +72,13 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  const listenOptions: any = { port, host: "0.0.0.0" };
+  // reusePort is not supported on some platforms (notably Windows), avoid passing it there
+  if (process.platform !== "win32") {
+    listenOptions.reusePort = true;
+  }
+
+  server.listen(listenOptions, () => {
     log(`serving on port ${port}`);
   });
 })();
